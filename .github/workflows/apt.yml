@@ -1,0 +1,54 @@
+# Publish the signed apt repository to GitHub Pages (apt.guahva.com) whenever a release is published here.
+# "Run workflow" rebuilds it from the latest release (or a placeholder before the first one).
+name: apt
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag: { type: string, required: false, description: "Release tag (default: the latest release)" }
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: The release's .deb files
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          [ -n "$TAG" ] || TAG=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          mkdir -p debs
+          if [ -n "$TAG" ]; then gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "*.deb" -D debs; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Signing key
+        run: |
+          echo "${{ secrets.APT_GPG_PRIVATE_KEY }}" | gpg --batch --import
+          sudo apt-get update && sudo apt-get install -y apt-utils
+      - run: ./scripts/apt-repo.sh debs site "${{ vars.APT_GPG_KEY_ID }}" "${{ steps.rel.outputs.tag }}"
+        env:
+          APT_URL: ${{ vars.APT_URL }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
