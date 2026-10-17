@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/outreach-explainer.mp4">Watch the 1-minute explainer</a> ·
+  <a href="docs/outreach-explainer.mp4">Watch the 90-second explainer (with voiceover)</a> ·
   <a href="#install">Install</a> ·
   <a href="https://github.com/hormuz-labs/outreach-releases/releases/latest">Latest release</a>
 </p>
